@@ -1,0 +1,8 @@
+.vscode/
+Debug/
+Release/
+*.out
+xmsg.*
+xmsgkey.txt
+xmsg
+
