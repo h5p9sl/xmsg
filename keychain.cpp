@@ -26,7 +26,7 @@ Keychain::Keychain() :
         std::cin.clear();
         std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
         
-        if (choice >= 0 && choice <= this->keyNames.size() - 1) {
+        if (choice <= this->keyNames.size() - 1) {
             this->currentKeyIndex = choice;
             break;
         } else {
