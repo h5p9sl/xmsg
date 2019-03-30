@@ -1,3 +1,7 @@
+// Acknowledgments:
+//  https://github.com/ReneNyffenegger/cpp-base64
+//  https://github.com/kokke/tiny-AES-c
+
 #include <cstring>
 #include <string>
 #include <cstdio>
@@ -30,11 +34,10 @@ void help(char* argv[]) {
 }
 
 std::string getInput() {
-    char buffer[4096];
-    printf("xmsg > ");
-    fgets(buffer, 4096, stdin);
-    buffer[strlen(buffer) - 1] = '\0';
-    return std::string(buffer);
+    std::string line;
+    std::cout << "xmsg$ " << std::flush;
+    std::getline(std::cin, line);
+    return line;
 }
 
 void randomizeIV(AES_ctx* ctx) {
