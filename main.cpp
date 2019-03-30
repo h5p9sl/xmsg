@@ -77,7 +77,7 @@ void randomizeIV(AES_ctx* ctx) {
 // Metadata that comes BEFORE the encrypted data
 struct AESMetadata
 {
-    int messageLength;
+    uint16_t messageLength;
     uint8_t IV[AES_BLOCKLEN];
 };
 
