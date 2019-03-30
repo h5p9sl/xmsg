@@ -15,11 +15,11 @@ Keychain::Keychain() :
 
     while (this->keyNames.size() > 1) {
         puts("Which encryption key do you want to use?");
-        for (int i = 0; i < this->keyNames.size(); i++) {
+        for (unsigned i = 0; i < this->keyNames.size(); i++) {
             printf("[%i]: \"%s\"\n", i, this->keyNames.at(i).c_str());
         }
 
-        int choice;
+        unsigned choice;
         std::cout << "xmsg > " << std::flush;
         std::cin >> choice;
         // Clear the input stream
@@ -53,8 +53,8 @@ std::array<uint8_t, AES_KEYLEN> Keychain::getKey()
     while (std::getline(file, line, '\n')) {
         if (i == this->currentKeyIndex) {
             std::string keyStr = line.substr(15);
-            for (int i = 0; i < keyStr.length() - 15; i++) {
-                key.at(i) = keyStr[i];
+            for (unsigned j = 0; j < keyStr.length() - 15; j++) {
+                key.at(j) = keyStr[j];
             }
             break;
         }

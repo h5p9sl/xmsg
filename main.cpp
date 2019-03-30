@@ -223,7 +223,7 @@ void createkey()
             std::string input;
             std::getline(std::cin, input);
 
-            for (int i = 0; i < input.length(); i++) {
+            for (unsigned i = 0; i < input.length(); i++) {
                 key.at(i) = input[i];
             }
 
