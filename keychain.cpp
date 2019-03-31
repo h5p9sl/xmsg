@@ -52,8 +52,8 @@ std::array<uint8_t, AES_KEYLEN> Keychain::getKey()
     int i = 0;
     while (std::getline(file, line, '\n')) {
         if (i == this->currentKeyIndex) {
-            std::string keyStr = line.substr(15);
-            for (unsigned j = 0; j < keyStr.length() - 15; j++) {
+            std::string keyStr = line.substr(16);
+            for (unsigned j = 0; j < keyStr.length(); j++) {
                 key.at(j) = keyStr[j];
             }
             break;
