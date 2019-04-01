@@ -8,12 +8,12 @@
 
 constexpr char keyfile[] = "./xmsgkey.txt";
 
-Keychain::Keychain() :
+Keychain::Keychain(const bool promptUser) :
     currentKeyIndex(0)
 {
-    this->getKeyNames();
+    this->loadKeyNames();
 
-    while (this->keyNames.size() > 1) {
+    while (promptUser && this->keyNames.size() > 1) {
         puts("Which encryption key do you want to use?");
         for (unsigned i = 0; i < this->keyNames.size(); i++) {
             printf("[%i]: \"%s\"\n", i, this->keyNames.at(i).c_str());
@@ -97,7 +97,7 @@ void Keychain::createKey(std::string keyName, std::array<uint8_t, AES_KEYLEN> ke
     file.close();
 }
 
-void Keychain::getKeyNames()
+void Keychain::loadKeyNames()
 {
     std::ifstream file(keyfile);
     std::string line;
@@ -109,6 +109,7 @@ void Keychain::getKeyNames()
         return;
     }
 
+    this->keyNames.clear();
     while (std::getline(file, line)) {
         this->keyNames.push_back(line.substr(0, 15));
     }

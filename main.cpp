@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <iostream>
 #include <fstream>
+#include <limits>
 
 #ifdef __linux__
 #include <sys/random.h>
@@ -75,8 +76,7 @@ void randomizeIV(AES_ctx* ctx) {
 }
 
 // Metadata that comes BEFORE the encrypted data
-struct AESMetadata
-{
+struct AESMetadata {
     uint16_t messageLength;
     uint8_t IV[AES_BLOCKLEN];
 };
@@ -171,8 +171,7 @@ void xmsg() {
     delete ctx;
 }
 
-void createkey()
-{
+void createkey() {
     std::string keyName, choice;
     puts("What do you want to call the key? (MAX 16 CHARS)");
     std::cout << "Name: " << std::flush;
@@ -227,11 +226,61 @@ void createkey()
                 key.at(i) = input[i];
             }
 
-            keychain->createKey(keyName, key);
+            Keychain::createKey(keyName, key);
             break;
         }
     }
+}
+
+void deletekey() {
+    if (keychain == nullptr) keychain = new Keychain(false);
+    while (true) {
+        std::vector<std::string> keyNames = keychain->getKeyNames();
+        for (int i = 0; i < keyNames.size(); i++) {
+            printf("[%i]: \"%s\"\n", i, keyNames.at(i).c_str());
         }
+        puts("Which key would you like to delete?");
+
+        unsigned choice;
+        std::cout << "xmsg > " << std::flush;
+        std::cin >> choice;
+        // Clear the input stream
+        std::cin.clear();
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+        if (choice <= keyNames.size() - 1) {
+            if (std::rename("xmsgkey.txt", "xmsgkey.bak") == 0) {
+                std::ifstream in("xmsgkey.bak");
+                std::ofstream out("xmsgkey.txt");
+                if (in.is_open() && out.is_open()) {
+                    if (keyNames.size() == 1) {
+                        out.clear();
+                        out.close();
+                        in.close();
+                    }
+                    std::string line;
+                    unsigned int i = 0;
+                    while (std::getline(in, line)) {
+                        if (i != choice) {
+                            out << line;
+                            out.put('\n');
+                        }
+                        i++;
+                    }
+                    in.close();
+                    out.close();
+                } else {
+                    std::cout << "Could not open files...\n";
+                }
+            } else {
+                perror("rename");
+                return;
+            }
+        } else {
+            puts("Invalid option.");
+        }
+    }
+}
 
 int main(int argc, char* argv[]) {
 
@@ -245,6 +294,10 @@ int main(int argc, char* argv[]) {
         }
         else if (strcmp(argv[1], "--createkey") == 0) {
             createkey();
+            return 0;
+        }
+        else if (strcmp(argv[1], "--deletekey") == 0) {
+            deletekey();
             return 0;
         }
         else {

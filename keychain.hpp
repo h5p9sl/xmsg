@@ -13,12 +13,13 @@ private:
     int currentKeyIndex;
     std::vector<std::string> keyNames;
 public:
-    Keychain();
+    Keychain(const bool promptUser = true);
     int getKeyIndex() const { return this->currentKeyIndex; }
     std::array<uint8_t, AES_KEYLEN> getKey();
-    void createKey(std::string keyName, std::array<uint8_t, AES_KEYLEN> key);
+    static void createKey(std::string keyName, std::array<uint8_t, AES_KEYLEN> key);
+    std::vector<std::string> getKeyNames() { this->loadKeyNames(); return this->keyNames; }
 private:
-    void getKeyNames();
+    void loadKeyNames();
 };
 
 #endif
