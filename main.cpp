@@ -218,9 +218,9 @@ void createkey() {
             puts("Please enter what you want the key to be (MAX 32 CHARS)");
             std::cout << '\"' << keyName << "\": ";
             std::array<uint8_t, AES_KEYLEN> key;
-            key.fill(0);
             std::string input;
             std::getline(std::cin, input);
+            input.resize(32, '\0');
 
             for (unsigned i = 0; i < input.length(); i++) {
                 key.at(i) = input[i];
