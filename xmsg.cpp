@@ -137,11 +137,11 @@ void Application::start() {
             while (msgLen % 16 != 0) msgLen++;
             uint8_t* buf = new uint8_t[msgLen + sizeof(AESMetadata)];
 
-            memset(buf + msg.length() + sizeof(AESMetadata), msgLen - msg.length(), msgLen - msg.length());
-            for (int i = 0; i < msgLen - msg.length(); i++) {
-                buf[msg.length() + i] = (uint8_t)rand();
+            {
+                std::vector<uint8_t> randomBytes = this->generateRandomBytes(msgLen - msg.length());
+                memcpy(buf + sizeof(AESMetadata) + msg.length(), randomBytes.data(), randomBytes.size());
+                memcpy(buf + sizeof(AESMetadata), msg.data(), msg.length());
             }
-            memcpy(buf + sizeof(AESMetadata), msg.data(), msg.length());
 
             AESMetadata* md = (AESMetadata*)buf;
             md->messageLength = msg.length();
