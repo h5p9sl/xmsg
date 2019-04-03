@@ -2,21 +2,7 @@
 //  https://github.com/ReneNyffenegger/cpp-base64
 //  https://github.com/kokke/tiny-AES-c
 
-#include <cstring>
-#include <string>
 #include <cstdio>
-#include <iostream>
-#include <fstream>
-#include <limits>
-
-#ifdef __linux__
-#include <sys/random.h>
-#elif defined(_WIN32)
-#include <Windows.h>
-#include <bcrypt.h>
-
-#pragma comment(lib, "bcrypt.lib")
-#endif
 
 #include "xmsg.hpp"
 
