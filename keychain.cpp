@@ -5,6 +5,9 @@
 #include <fstream>
 #include <limits>
 #include <cstring>
+#include <algorithm>
+
+#include "xmsg.hpp"
 
 constexpr char keyfile[] = "./xmsgkey.txt";
 
@@ -65,6 +68,103 @@ std::array<uint8_t, AES_KEYLEN> Keychain::getKey()
     return key;
 }
 
+void Keychain::createKey() {
+    std::string keyName, choice;
+    puts("What do you want to call the key? (MAX 16 CHARS)");
+    std::cout << "Name: " << std::flush;
+    std::getline(std::cin, keyName);
+    keyName.resize(16, '\0');
+    while (true) {
+        puts("Do you want to randomize the key? (y/n)");
+        std::cout << '\"' << keyName << "\": ";
+        std::getline(std::cin, choice);
+        if (choice.compare("y") == 0) {
+            std::array<uint8_t, AES_KEYLEN> key;
+            key.fill(0);
+
+            constexpr char alphabet[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-=`~\\\"\';:?/>.<,[]{}|";
+            {
+                std::vector<uint8_t> keyVector = Application::generateRandomBytes(AES_KEYLEN);
+                std::copy_n(keyVector.begin(), AES_KEYLEN, key.begin());
+            }
+
+            std::cout << "Generated random key: ";
+            for (int i = 0; i < AES_KEYLEN; i++) {
+                key.at(i) = alphabet[key[i] * strlen(alphabet) / UINT8_MAX];
+                std::cout << (char)key[i];
+            }
+            std::cout << '\n';
+
+            Keychain::createKey(keyName, key);
+            puts("Randomized key generated.");
+            break;
+        } else if (choice.compare("n") == 0) {
+            puts("Please enter what you want the key to be (MAX 32 CHARS)");
+            std::cout << '\"' << keyName << "\": ";
+            std::array<uint8_t, AES_KEYLEN> key;
+            std::string input;
+            std::getline(std::cin, input);
+            input.resize(32, '\0');
+
+            for (unsigned i = 0; i < input.length(); i++) {
+                key.at(i) = input[i];
+            }
+
+            Keychain::createKey(keyName, key);
+            break;
+        }
+    }
+}
+
+void Keychain::deleteKey() {
+    while (true) {
+        std::vector<std::string> keyNames = this->getKeyNames();
+        for (int i = 0; i < keyNames.size(); i++) {
+            printf("[%i]: \"%s\"\n", i, keyNames.at(i).c_str());
+        }
+        puts("Which key would you like to delete?");
+
+        unsigned choice;
+        std::cout << "xmsg > " << std::flush;
+        std::cin >> choice;
+        // Clear the input stream
+        std::cin.clear();
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+        if (choice <= keyNames.size() - 1) {
+            if (std::rename("xmsgkey.txt", "xmsgkey.bak") == 0) {
+                std::ifstream in("xmsgkey.bak");
+                std::ofstream out("xmsgkey.txt");
+                if (in.is_open() && out.is_open()) {
+                    if (keyNames.size() == 1) {
+                        out.clear();
+                        out.close();
+                        in.close();
+                    }
+                    std::string line;
+                    unsigned int i = 0;
+                    while (std::getline(in, line)) {
+                        if (i != choice) {
+                            out << line;
+                            out.put('\n');
+                        }
+                        i++;
+                    }
+                    in.close();
+                    out.close();
+                } else {
+                    std::cout << "Could not open files...\n";
+                }
+            } else {
+                perror("rename");
+                return;
+            }
+        } else {
+            puts("Invalid option.");
+        }
+    }
+}
+
 void Keychain::createKey(std::string keyName, std::array<uint8_t, AES_KEYLEN> key)
 {
     std::cout << "Creating a key named " << keyName << "...\n";
@@ -116,3 +216,4 @@ void Keychain::loadKeyNames()
 
     file.close();
 }
+
