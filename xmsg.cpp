@@ -75,7 +75,9 @@ void Application::processArguments(const int argc, char** argv) {
             exit(0);
         }
         else if (strcmp(argv[1], "--deletekey") == 0) {
-            this->keychain->deleteKey();
+            Keychain* keychain = new Keychain(false);
+            keychain->deleteKey();
+            delete keychain;
             exit(0);
         }
         else {
