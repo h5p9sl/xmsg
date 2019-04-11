@@ -7,6 +7,8 @@
 
 #include "keychain.hpp"
 
+constexpr float _xmsg_version = 1.0f;
+
 class Application
 {
 private:

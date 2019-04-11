@@ -34,6 +34,7 @@ void help(char** argv) {
     printf("Usage: %s [optional flags]\n", argv[0]);
     puts("xmsg is a cryptography program that aims to create strong encrypted messages for two or more people.");
     puts("-h    --help      : display this help message.");
+    puts("-v    --version   : display xmsg version.");
     puts("-d    --debug     : enable debug messages.");
     puts("      --createkey : create encryption key.");
     puts("      --deletekey : delete encryption key.");
@@ -65,6 +66,10 @@ void Application::processArguments(const int argc, char** argv) {
     if (argc >= 2) {
         if (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) {
             help(argv);
+            exit(0);
+        }
+        else if (strcmp(argv[1], "-v") == 0 || strcmp(argv[1], "--version") == 0) {
+            printf("xmsg version %.1f\n", _xmsg_version);
             exit(0);
         }
         else if (strcmp(argv[1], "-d") == 0 || strcmp(argv[1], "--debug") == 0) {
