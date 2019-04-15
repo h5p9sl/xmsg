@@ -16,6 +16,7 @@
 #pragma comment(lib, "bcrypt.lib")
 #endif
 
+// Compiler hack
 #ifdef __linux__
 #include "aes.h"
 #else
@@ -23,11 +24,23 @@
 #endif
 #include "base64.hpp"
 
-std::string Application::getInput() {
-    std::string line;
-    std::cout << '(' << this->keychain->getKeyIndex() << ") xmsg > " << std::flush;
-    std::getline(std::cin, line);
-    return line;
+static bool _debugMode = false;
+
+void help(char** argv);
+void encryptMessage(AES_ctx* ctx, std::string msg);
+void decryptMessage(AES_ctx* ctx, std::string msg);
+void inline debugPrint(const char* output);
+
+// Metadata that comes BEFORE the encrypted data
+struct AESMetadata {
+    uint16_t messageLength;
+    uint8_t IV[AES_BLOCKLEN];
+};
+
+void debugPrint(const char* output) {
+    if (_debugMode == true) {
+        puts(output);
+    }
 }
 
 void help(char** argv) {
@@ -38,6 +51,56 @@ void help(char** argv) {
     puts("-d    --debug     : enable debug messages.");
     puts("      --createkey : create encryption key.");
     puts("      --deletekey : delete encryption key.");
+}
+
+void encryptMessage(AES_ctx* ctx, std::string msg) {
+    debugPrint("Encrypting data...");
+
+    size_t msgLen = msg.length();
+    while (msgLen % 16 != 0) msgLen++;
+    uint8_t* buf = new uint8_t[msgLen + sizeof(AESMetadata)];
+
+    // Generate random bytes to fill in the extra space at the end of the message.
+    {
+        std::vector<uint8_t> randomBytes = Application::generateRandomBytes(msgLen - msg.length());
+        memcpy(buf + sizeof(AESMetadata) + msg.length(), randomBytes.data(), randomBytes.size());
+        memcpy(buf + sizeof(AESMetadata), msg.data(), msg.length());
+    }
+
+    AESMetadata* md = (AESMetadata*)buf;
+    md->messageLength = msg.length();
+    memcpy(md->IV, ctx->Iv, AES_BLOCKLEN);
+
+    debugPrint("Encrypting buffer...");
+    AES_CBC_encrypt_buffer(ctx, sizeof(AESMetadata) + buf, msgLen);
+
+    std::cout << base64_encode(buf, msgLen + sizeof(AESMetadata)) << std::endl;
+
+    delete buf;
+}
+
+void decryptMessage(AES_ctx* ctx, std::string msg) {
+    debugPrint("Decrypting data...");
+    std::string data = base64_decode(msg);
+    uint8_t* buf = (uint8_t*)data.data();
+
+    // Extract metadata
+    AESMetadata* md = (AESMetadata*)data.data();
+    // Set IV
+    AES_ctx_set_iv(ctx, md->IV);
+
+    debugPrint("Decrypting buffer...");
+    AES_CBC_decrypt_buffer(ctx, buf + sizeof(AESMetadata), data.size() - sizeof(AESMetadata));
+
+    std::string finalMessage = data.substr(sizeof(AESMetadata), md->messageLength);
+    std::cout << '\"' << finalMessage << '\"' << std::endl;
+}
+
+std::string Application::getInput() {
+    std::string line;
+    std::cout << '(' << this->keychain->getKeyIndex() << ") xmsg > " << std::flush;
+    std::getline(std::cin, line);
+    return line;
 }
 
 std::vector<uint8_t> Application::generateRandomBytes(const int count) {
@@ -73,7 +136,7 @@ void Application::processArguments(const int argc, char** argv) {
             exit(0);
         }
         else if (strcmp(argv[1], "-d") == 0 || strcmp(argv[1], "--debug") == 0) {
-            this->debugMode = true;
+            _debugMode = true;
         }
         else if (strcmp(argv[1], "--createkey") == 0) {
             Keychain::createKey();
@@ -94,9 +157,8 @@ void Application::processArguments(const int argc, char** argv) {
 }
 
 Application::Application(const int argc, char** argv)
-:
-    debugMode(false)
 {
+    _debugMode = false;
     processArguments(argc, argv);
 }
 
@@ -106,11 +168,11 @@ void Application::start() {
     auto DestroyAES = [](AES_ctx* ctx) -> void {
         memset(ctx, 0, sizeof(AES_ctx));
     };
-    auto RandomizeIV = [this](AES_ctx* ctx) -> void {
-        std::vector<uint8_t> iv = this->generateRandomBytes(AES_BLOCKLEN);
-        AES_ctx_set_iv(ctx, iv.data());
-    };
-    auto InitializeAES = [RandomizeIV, this](AES_ctx* ctx) -> void {
+    auto InitializeAES = [this](AES_ctx* ctx) -> void {
+        auto RandomizeIV = [](AES_ctx* ctx) -> void {
+            std::vector<uint8_t> iv = Application::generateRandomBytes(AES_BLOCKLEN);
+            AES_ctx_set_iv(ctx, iv.data());
+        };
         // Get key from file
         std::array<uint8_t, AES_KEYLEN> key = this->keychain->getKey();
         // Initialize AES
@@ -118,79 +180,27 @@ void Application::start() {
         RandomizeIV(ctx);
     };
 
-    // Metadata that comes BEFORE the encrypted data
-    struct AESMetadata {
-        uint16_t messageLength;
-        uint8_t IV[AES_BLOCKLEN];
-    };
-
     // Create AES context
     AES_ctx* ctx = new AES_ctx;
     // Create Keychain instance
     this->keychain = std::make_unique<Keychain>();
 
+    // Application main loop
     while (true) {
         puts("Type in a message.");
         std::string msg = this->getInput();
         puts("Encrypt or Decrypt? (e/d)");
         std::string option = this->getInput();
+
         if (option.compare("e") == 0) {
-            puts("Encrypting data...");
-
-            if (this->debugMode) puts("Initializing AES context...");
             InitializeAES(ctx);
-
-            size_t msgLen = msg.length();
-            while (msgLen % 16 != 0) msgLen++;
-            uint8_t* buf = new uint8_t[msgLen + sizeof(AESMetadata)];
-
-            {
-                std::vector<uint8_t> randomBytes = this->generateRandomBytes(msgLen - msg.length());
-                memcpy(buf + sizeof(AESMetadata) + msg.length(), randomBytes.data(), randomBytes.size());
-                memcpy(buf + sizeof(AESMetadata), msg.data(), msg.length());
-            }
-
-            AESMetadata* md = (AESMetadata*)buf;
-            md->messageLength = msg.length();
-            memcpy(md->IV, ctx->Iv, AES_BLOCKLEN);
-
-            if (this->debugMode) puts("Encrypting buffer...");
-            AES_CBC_encrypt_buffer(ctx, sizeof(AESMetadata) + buf, msgLen);
-            
+            encryptMessage(ctx, msg);
             DestroyAES(ctx);
-
-            std::cout << base64_encode(buf, msgLen + sizeof(AESMetadata)) << std::endl;
-
-            delete buf;
         }
         else if (option.compare("d") == 0) {
-            puts("Decrypting data...");
-            std::string data = base64_decode(msg);
-            uint8_t* buf = (uint8_t*)data.data();
-            
-            if (this->debugMode) puts("Initializing AES context...");
             InitializeAES(ctx);
-
-            // Extract metadata
-            AESMetadata* md = (AESMetadata*)data.data();
-            // Set IV
-            AES_ctx_set_iv(ctx, md->IV);
-
-            if (this->debugMode) {
-                std::cout << "AES->RoundKey == { ";
-                for (int i = 0; i < AES_keyExpSize; i++) {
-                    std::cout << std::hex << (int)ctx->RoundKey[i] << ", ";
-                }
-                std::cout << "}\n";
-            }
-
-            if (this->debugMode) puts("Decrypting buffer...");
-            AES_CBC_decrypt_buffer(ctx, buf + sizeof(AESMetadata), data.size() - sizeof(AESMetadata));
-
+            decryptMessage(ctx, msg);
             DestroyAES(ctx);
-
-            std::string finalMessage = data.substr(sizeof(AESMetadata), md->messageLength);
-            std::cout << '\"' << finalMessage << '\"' << std::endl;
         }
         else {
             puts("Invalid option.");
