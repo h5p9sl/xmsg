@@ -15,6 +15,7 @@ options:
 	@echo "LDFLAGS	= ${LDFLAGS}"
 	@echo "CC	= ${CC}"
 	@echo "OBJ	= ${OBJ}"
+	@echo "CONFIG	= ${CONFIG}"
 
 .c.o:
 	@echo CC -c $<

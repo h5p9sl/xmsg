@@ -69,13 +69,13 @@ void Keychain::createKeyFile() {
     exists = false;
 #ifdef __linux__
     struct stat s;
-    if (stat(keyfile, &s) == 0) {
+    if (stat(KEYFILE_PATH, &s) == 0) {
         exists = (bool)S_ISREG(s.st_mode);
         printf("exists = %i\n", (int)exists);
     }
 
     if (!exists) {
-        mkdir_parents(keyfile, 511);
+        mkdir_parents(KEYFILE_PATH, 511);
     }
 #elif defined(_WIN32)
     // TODO: Write WIN32 code here
@@ -84,13 +84,13 @@ void Keychain::createKeyFile() {
 
 std::array<uint8_t, AES_KEYLEN> Keychain::getKey()
 {
-    std::ifstream file(keyfile);
+    std::ifstream file(KEYFILE_PATH);
     std::string line;
     std::array<uint8_t, AES_KEYLEN> key;
     key.fill(0);
 
     if (!file.is_open()) {
-        printf("Could not open %s... Does it exist?\n", keyfile);
+        printf("Could not open %s... Does it exist?\n", KEYFILE_PATH);
         file.close();
         exit(0);
         return key;
@@ -221,9 +221,9 @@ void Keychain::createKey(std::string keyName, std::array<uint8_t, AES_KEYLEN> ke
     }
     std::cout << '\n';
 
-    std::ofstream file(keyfile, std::ios::app | std::ios::out);
+    std::ofstream file(KEYFILE_PATH, std::ios::app | std::ios::out);
     if (!file.is_open()) {
-        printf("Could not open %s for writing...\n", keyfile);
+        printf("Could not open %s for writing...\n", KEYFILE_PATH);
         file.close();
         return;
     }
@@ -246,11 +246,11 @@ void Keychain::createKey(std::string keyName, std::array<uint8_t, AES_KEYLEN> ke
 
 void Keychain::loadKeyNames()
 {
-    std::ifstream file(keyfile);
+    std::ifstream file(KEYFILE_PATH);
     std::string line;
 
     if (!file.is_open()) {
-        printf("Could not open \"%s\"... Does it exist?\n", keyfile);
+        printf("Could not open \"%s\"... Does it exist?\n", KEYFILE_PATH);
         file.close();
         exit(0);
         return;
