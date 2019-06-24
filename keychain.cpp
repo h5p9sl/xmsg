@@ -16,7 +16,7 @@ Keychain::Keychain(const int keyid) :
 {
     this->loadKeyNames();
     // Invalid key was selected.
-    if (keyid < 0 || keyid >= this->keyNames.size()) {
+    if (keyid < 0 || (unsigned)keyid >= this->keyNames.size()) {
         puts("Which encryption key do you want to use?");
         for (unsigned i = 0; i < this->keyNames.size(); i++) {
             printf("[%i]: \"%s\"\n", i, this->keyNames.at(i).c_str());
@@ -106,7 +106,7 @@ void Keychain::createKey() {
 void Keychain::deleteKey() {
     while (true) {
         std::vector<std::string> keyNames = this->getKeyNames();
-        for (int i = 0; i < keyNames.size(); i++) {
+        for (unsigned i = 0; i < keyNames.size(); i++) {
             printf("[%i]: \"%s\"\n", i, keyNames.at(i).c_str());
         }
         puts("Which key would you like to delete?");

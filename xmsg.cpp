@@ -130,7 +130,7 @@ void Application::processArguments(const int argc, char** argv) {
 
     flag = 0;
     if (argc >= 2) {
-        for (unsigned i = 1; i < argc; i++) {
+        for (int i = 1; i < argc; i++) {
             if (strcmp(argv[i], "-e") == 0 || strcmp(argv[i], "--encrypt") == 0) {
                 _encrypt = true;
                 flag |= 1 << 0;
