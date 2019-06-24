@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <limits>
 
 #ifdef __linux__
@@ -25,6 +26,7 @@
 #include "base64.hpp"
 
 static bool _debugMode = false;
+static bool _encrypt = false;
 
 void help(char** argv);
 void encryptMessage(AES_ctx* ctx, std::string msg);
@@ -48,7 +50,11 @@ void help(char** argv) {
     puts("xmsg is a cryptography program that aims to create strong encrypted messages for two or more people.");
     puts("-h    --help      : display this help message.");
     puts("-v    --version   : display xmsg version.");
-    puts("-d    --debug     : enable debug messages.");
+    puts("-D    --debug     : enable debug messages.");
+    puts("-k    --key       : set encryption key.");
+    puts("-K    --dumpkeys  : dumps available encryption keys.");
+    puts("-e    --encrypt   : encrypts input.");
+    puts("-d    --decrypt   : decrypts input.");
     puts("      --createkey : create encryption key.");
     puts("      --deletekey : delete encryption key.");
 }
@@ -96,13 +102,6 @@ void decryptMessage(AES_ctx* ctx, std::string msg) {
     std::cout << '\"' << finalMessage << '\"' << std::endl;
 }
 
-std::string Application::getInput() {
-    std::string line;
-    std::cout << '(' << this->keychain->getKeyIndex() << ") xmsg > " << std::flush;
-    std::getline(std::cin, line);
-    return line;
-}
-
 std::vector<uint8_t> Application::generateRandomBytes(const int count) {
     std::vector<uint8_t> result;
     result.resize(count);
@@ -126,37 +125,75 @@ std::vector<uint8_t> Application::generateRandomBytes(const int count) {
 }
 
 void Application::processArguments(const int argc, char** argv) {
+    uint8_t flag;
+    const uint8_t mask = 0b11;
+
+    flag = 0;
     if (argc >= 2) {
-        if (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) {
-            help(argv);
-            exit(0);
+        for (unsigned i = 1; i < argc; i++) {
+            if (strcmp(argv[i], "-e") == 0 || strcmp(argv[i], "--encrypt") == 0) {
+                _encrypt = true;
+                flag |= 1 << 0;
+            }
+            else if (strcmp(argv[i], "-d") == 0 || strcmp(argv[i], "--decrypt") == 0) {
+                _encrypt = false;
+                flag |= 1 << 0;
+            }
+            else if (strncmp(argv[i], "-k", 2) == 0 || strcmp(argv[i], "--key") == 0) {
+                std::stringstream d;
+                int n;
+
+                // Convert to number
+                std::string number(argv[i] + 2, strlen(argv[i]) - 2);
+                n = std::stoi(number);
+
+                d << "Switching key to number " << n;
+                debugPrint(d.str().c_str());
+
+                this->key = n;
+                flag |= 1 << 1;
+            }
+            else if (strcmp(argv[i], "-K") == 0 || strcmp(argv[i], "--dumpkeys") == 0) {
+                // Creates Keychain object with invalid key ID.
+                // Prints out all the available encryption keys
+                Keychain keychain(-1);
+            }
+            else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
+                help(argv);
+                exit(0);
+            }
+            else if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--version") == 0) {
+                printf("xmsg version %.1f\n", _xmsg_version);
+                exit(0);
+            }
+            else if (strcmp(argv[i], "-D") == 0 || strcmp(argv[i], "--debug") == 0) {
+                _debugMode = true;
+            }
+            else if (strcmp(argv[i], "--createkey") == 0) {
+                Keychain::createKey();
+                exit(0);
+            }
+            else if (strcmp(argv[i], "--deletekey") == 0) {
+                Keychain* keychain = new Keychain(false);
+                keychain->deleteKey();
+                delete keychain;
+                exit(0);
+            }
+            else {
+                printf("Error: Unrecognized argument \"%s\".\n", argv[i]);
+                puts("Launch this program with the \"--help\" flag to see a list of arguments.");
+                exit(0);
+            }
         }
-        else if (strcmp(argv[1], "-v") == 0 || strcmp(argv[1], "--version") == 0) {
-            printf("xmsg version %.1f\n", _xmsg_version);
-            exit(0);
-        }
-        else if (strcmp(argv[1], "-d") == 0 || strcmp(argv[1], "--debug") == 0) {
-            _debugMode = true;
-        }
-        else if (strcmp(argv[1], "--createkey") == 0) {
-            Keychain::createKey();
-            exit(0);
-        }
-        else if (strcmp(argv[1], "--deletekey") == 0) {
-            Keychain* keychain = new Keychain(false);
-            keychain->deleteKey();
-            delete keychain;
-            exit(0);
-        }
-        else {
-            printf("Error: Unrecognized argument \"%s\".\n", argv[1]);
-            puts("Launch this program with the \"--help\" flag to see a list of arguments.");
-            exit(0);
-        }
+    }
+    if ((flag & mask) != mask) {
+        printf("Error: Missing arguments...\n");
+        exit(0);
     }
 }
 
-Application::Application(const int argc, char** argv)
+Application::Application(const int argc, char** argv) :
+    key(-1)
 {
     _debugMode = false;
     processArguments(argc, argv);
@@ -183,29 +220,25 @@ void Application::start() {
     // Create AES context
     AES_ctx* ctx = new AES_ctx;
     // Create Keychain instance
-    this->keychain = std::make_unique<Keychain>();
+    this->keychain = std::make_unique<Keychain>(this->key);
 
-    // Application main loop
-    while (true) {
-        puts("Type in a message.");
-        std::string msg = this->getInput();
-        puts("Encrypt or Decrypt? (e/d)");
-        std::string option = this->getInput();
+    std::string data;
+    debugPrint("Reading input until EOF is reached.");
+    while (std::cin.good()) {
+        char c;
+        std::cin.get(c);
+        data.push_back(c);
+    };
+    // Get rid of EOF char
+    data.pop_back();
 
-        if (option.compare("e") == 0) {
-            InitializeAES(ctx);
-            encryptMessage(ctx, msg);
-            DestroyAES(ctx);
-        }
-        else if (option.compare("d") == 0) {
-            InitializeAES(ctx);
-            decryptMessage(ctx, msg);
-            DestroyAES(ctx);
-        }
-        else {
-            puts("Invalid option.");
-        }
+    InitializeAES(ctx);
+    if (_encrypt) {
+        encryptMessage(ctx, data);
+    } else {
+        decryptMessage(ctx, data);
     }
+    DestroyAES(ctx);
 
     delete ctx;
 }

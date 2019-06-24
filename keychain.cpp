@@ -11,30 +11,17 @@
 
 constexpr char keyfile[] = "./xmsgkey.txt";
 
-Keychain::Keychain(const bool promptUser) :
-    currentKeyIndex(0)
+Keychain::Keychain(const int keyid) :
+    currentKeyIndex(keyid)
 {
     this->loadKeyNames();
-
-    while (promptUser && this->keyNames.size() > 1) {
+    // Invalid key was selected.
+    if (keyid < 0 || keyid >= this->keyNames.size()) {
         puts("Which encryption key do you want to use?");
         for (unsigned i = 0; i < this->keyNames.size(); i++) {
             printf("[%i]: \"%s\"\n", i, this->keyNames.at(i).c_str());
         }
-
-        unsigned choice;
-        std::cout << "xmsg > " << std::flush;
-        std::cin >> choice;
-        // Clear the input stream
-        std::cin.clear();
-        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-        
-        if (choice <= this->keyNames.size() - 1) {
-            this->currentKeyIndex = choice;
-            break;
-        } else {
-            puts("Invalid option.");
-        }
+        exit(0);
     }
 }
 
