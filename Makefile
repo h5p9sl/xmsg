@@ -30,3 +30,15 @@ xmsg: ${OBJ}
 clean:
 	@echo cleaning
 	@rm -f xmsg ${OBJ}
+
+install: all
+	@echo installing executable file to ${PREFIX}/bin
+	@mkdir -p ${PREFIX}/bin
+	@cp -f xmsg ${PREFIX}/bin
+	@chmod 755 ${PREFIX}/bin/xmsg
+	@chmod u+s ${PREFIX}/bin/xmsg
+
+uninstall:
+	@echo removing executable file from ${PREFIX}/bin
+	@rm -f ${PREFIX}/bin/xmsg
+
