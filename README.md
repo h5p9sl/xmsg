@@ -3,6 +3,28 @@ Xmsg is a lightweight message encryption program that provides the user with mes
 
 Xmsg is **not** a chat client. It is simply a text encryption program.
 
+## Building/Installing
+0) Clone the github repository
+```sh
+git clone https://github.com/h5p9sl/xmsg
+cd xmsg
+```
+
+### Building
+
+1) Run make
+```sh
+make xmsg
+```
+
+### Installing
+
+1) Edit the config.mk file to suit your operating system
+2) Run make as root, if needed
+```sh
+make clean install
+```
+
 ## Feature Overview
 + AES-256-CBC for encryption and decryption
 + Prepends metadata in front of encrypted string
