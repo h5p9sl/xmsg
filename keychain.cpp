@@ -6,10 +6,17 @@
 #include <limits>
 #include <cstring>
 #include <algorithm>
+#include <cstdio>
 
 #include "xmsg.hpp"
+#include "config.hpp"
 
-constexpr char keyfile[] = "./xmsgkey.txt";
+#ifdef __linux__
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#elif defined(_WIN32)
+#endif
 
 Keychain::Keychain(const int keyid) :
     currentKeyIndex(keyid)
@@ -23,6 +30,56 @@ Keychain::Keychain(const int keyid) :
         }
         exit(0);
     }
+}
+
+#ifdef __linux__
+int mkdir_parents(const char* dir, const mode_t mode) {
+    char* buf;
+    int* sep;
+    unsigned dc, i;
+
+    dc = 0;
+    sep = NULL;
+    // Find all '/' characters in string
+    // and store their positions in sep
+    for (i = 0; i < strlen(dir); i++) {
+        if (dir[i] == '/') {
+            sep = (int*)realloc(sep, sizeof(int*) * ++dc);
+            sep[dc - 1] = i;
+        }
+    }
+
+    buf = (char*)malloc(strlen(dir) + 1);
+    memset(buf, 0, strlen(dir) + 1);
+    // Iterate through directories and create
+    // non existing ones
+    for (i = 1; i < dc; i++) {
+        strncpy(buf, dir, sep[i] + 1);
+        mkdir(buf, mode);
+    }
+
+    free(buf);
+    return 0;
+}
+#endif
+
+void Keychain::createKeyFile() {
+    bool exists;
+
+    exists = false;
+#ifdef __linux__
+    struct stat s;
+    if (stat(keyfile, &s) == 0) {
+        exists = (bool)S_ISREG(s.st_mode);
+        printf("exists = %i\n", (int)exists);
+    }
+
+    if (!exists) {
+        mkdir_parents(keyfile, 511);
+    }
+#elif defined(_WIN32)
+    // TODO: Write WIN32 code here
+#endif
 }
 
 std::array<uint8_t, AES_KEYLEN> Keychain::getKey()
@@ -154,6 +211,9 @@ void Keychain::deleteKey() {
 
 void Keychain::createKey(std::string keyName, std::array<uint8_t, AES_KEYLEN> key)
 {
+    // Checks if the key file exists, and creates one if it doesn't
+    Keychain::createKeyFile();
+
     std::cout << "Creating a key named " << keyName << "...\n";
     std::cout << "Key data: ";
     for (int i = 0; i < AES_KEYLEN; i++) {
@@ -190,7 +250,7 @@ void Keychain::loadKeyNames()
     std::string line;
 
     if (!file.is_open()) {
-        printf("Could not open %s... Does it exist?\n", keyfile);
+        printf("Could not open \"%s\"... Does it exist?\n", keyfile);
         file.close();
         exit(0);
         return;

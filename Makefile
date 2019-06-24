@@ -23,13 +23,17 @@ options:
 	@echo CC -c $<
 	@${CC} -c ${CFLAGS} $<
 
-xmsg: ${OBJ}
+config.hpp:
+	@echo copying config.def.hpp into config.hpp
+	@cp -f ./config.def.hpp ./config.hpp
+
+xmsg: config.hpp ${OBJ}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ} ${LDFLAGS}
 
 clean:
 	@echo cleaning
-	@rm -f xmsg ${OBJ}
+	@rm -f xmsg config.hpp ${OBJ}
 
 install: all
 	@echo installing executable file to ${PREFIX}/bin

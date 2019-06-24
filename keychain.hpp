@@ -23,6 +23,7 @@ public:
     static void createKey(std::string keyName, std::array<uint8_t, AES_KEYLEN> key);
 private:
     void loadKeyNames();
+    static void createKeyFile();
 };
 
 #endif
