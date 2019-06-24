@@ -99,7 +99,7 @@ void decryptMessage(AES_ctx* ctx, std::string msg) {
     AES_CBC_decrypt_buffer(ctx, buf + sizeof(AESMetadata), data.size() - sizeof(AESMetadata));
 
     std::string finalMessage = data.substr(sizeof(AESMetadata), md->messageLength);
-    std::cout << '\"' << finalMessage << '\"' << std::endl;
+    std::cout << finalMessage;
 }
 
 std::vector<uint8_t> Application::generateRandomBytes(const int count) {
