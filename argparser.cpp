@@ -82,8 +82,10 @@ void ARGPARSER_parseProgramArguments(int argc, char* argv[], char* overflow[], s
                 ((void(*)(int,const char*[]))ARGS[j].callback)(subargs_count, subargs);
                 break;
             case 2:
-                subargs[0] = str.data();
-                subargs_count = 1;
+                if (str.length() > 0) {
+                    subargs[0] = str.data();
+                    subargs_count = 1;
+                }
                 ((void(*)(int,const char*[]))ARGS[j].callback)(subargs_count, subargs);
                 break;
             }
@@ -111,6 +113,7 @@ void cmd_help(int argc, char* argv[]) {
     for (unsigned i = 0; i < sizeof(ARGS) / sizeof(ARGS[1]); i++) {
         printf("%s    %s    %s\n", ARGS[i].cmd, ARGS[i].alias, ARGS[i].description);
     }
+    exit(0);
 }
 
 void cmd_version(int argc, char* argv[]) {
@@ -124,10 +127,11 @@ void cmd_debug(int argc, char* argv[]) {
 
 void cmd_key(int argc, char* argv[]) {
     if (argc != 1) {
-        fputs("Invalid number of paramaters for --key:", stderr);
+        fprintf(stderr, "Invalid number of paramaters for --key (argc=%i).\n", argc);
         for (int i = 0; i < argc; i++) {
             printf("%i: %s\n", i, argv[i]);
         }
+        exit(1);
     }
     sscanf(argv[0], "%d", &argparser_context.key);
 }
