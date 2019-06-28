@@ -9,6 +9,7 @@ Xmsg is **not** a chat client. It is simply a text encryption program.
 git clone https://github.com/h5p9sl/xmsg
 cd xmsg
 ```
+1) Customize config.mk to suit your operating system
 
 ### Building
 
@@ -24,6 +25,15 @@ make xmsg
 ```sh
 make clean install
 ```
+
+## How to use
+Run `xmsg -h` to get a list of commands.
+
+### Examples
++ `echo 'Hello World!" | xmsg --key 2 --encrypt`
++ `cat file.txt | xmsg --key 0 --encrypt`
++ `xmsg --key 0 -e < file.txt`
++ `xmsg -k0 -e < file.txt > file.txt.enc`
 
 ## Feature Overview
 + AES-256-CBC for encryption and decryption
