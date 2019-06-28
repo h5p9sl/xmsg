@@ -181,11 +181,7 @@ void Application::start() {
     data.pop_back();
 
     InitializeAES(ctx);
-    if (_encrypt) {
-        encryptMessage(ctx, data);
-    } else {
-        decryptMessage(ctx, data);
-    }
+    (_encrypt) ? encryptMessage(ctx, data) : decryptMessage(ctx, data);
     DestroyAES(ctx);
 
     delete ctx;
