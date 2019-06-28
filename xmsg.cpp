@@ -24,11 +24,11 @@
 #include "aes.hpp"
 #endif
 #include "base64.hpp"
+#include "argparser.hpp"
 
 static bool _debugMode = false;
 static bool _encrypt = false;
 
-void help(char** argv);
 void encryptMessage(AES_ctx* ctx, std::string msg);
 void decryptMessage(AES_ctx* ctx, std::string msg);
 void inline debugPrint(const char* output);
@@ -43,20 +43,6 @@ void debugPrint(const char* output) {
     if (_debugMode == true) {
         puts(output);
     }
-}
-
-void help(char** argv) {
-    printf("Usage: %s [optional flags]\n", argv[0]);
-    puts("xmsg is a cryptography program that aims to create strong encrypted messages for two or more people.");
-    puts("-h    --help      : display this help message.");
-    puts("-v    --version   : display xmsg version.");
-    puts("-D    --debug     : enable debug messages.");
-    puts("-k    --key       : set encryption key.");
-    puts("-K    --dumpkeys  : dumps available encryption keys.");
-    puts("-e    --encrypt   : encrypts input.");
-    puts("-d    --decrypt   : decrypts input.");
-    puts("      --createkey : create encryption key.");
-    puts("      --deletekey : delete encryption key.");
 }
 
 void encryptMessage(AES_ctx* ctx, std::string msg) {
@@ -125,71 +111,33 @@ std::vector<uint8_t> Application::generateRandomBytes(const int count) {
 }
 
 void Application::processArguments(const int argc, char** argv) {
-    uint8_t flag;
-    const uint8_t mask = 0b11;
+    
+    unsigned overflow_count = 0;
+    char** overflow = new char*[argc];
 
-    flag = 0;
-    if (argc >= 2) {
-        for (int i = 1; i < argc; i++) {
-            if (strcmp(argv[i], "-e") == 0 || strcmp(argv[i], "--encrypt") == 0) {
-                _encrypt = true;
-                flag |= 1 << 0;
-            }
-            else if (strcmp(argv[i], "-d") == 0 || strcmp(argv[i], "--decrypt") == 0) {
-                _encrypt = false;
-                flag |= 1 << 0;
-            }
-            else if (strncmp(argv[i], "-k", 2) == 0 || strcmp(argv[i], "--key") == 0) {
-                std::stringstream d;
-                int n;
+    if (argc < 2) {
+        printf("Insufficient number of arguments...\n");
+        exit(1);
+    }
 
-                // Convert to number
-                std::string number(argv[i] + 2, strlen(argv[i]) - 2);
-                n = std::stoi(number);
+    ARGPARSER_parseProgramArguments((int)argc - 1, &argv[1], overflow, sizeof(char*) * argc, &overflow_count);
 
-                d << "Switching key to number " << n;
-                debugPrint(d.str().c_str());
-
-                this->key = n;
-                flag |= 1 << 1;
-            }
-            else if (strcmp(argv[i], "-K") == 0 || strcmp(argv[i], "--dumpkeys") == 0) {
-                // Creates Keychain object with invalid key ID.
-                // Prints out all the available encryption keys
-                Keychain keychain(-1);
-            }
-            else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
-                help(argv);
-                exit(0);
-            }
-            else if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--version") == 0) {
-                printf("xmsg version %.1f\n", _xmsg_version);
-                exit(0);
-            }
-            else if (strcmp(argv[i], "-D") == 0 || strcmp(argv[i], "--debug") == 0) {
-                _debugMode = true;
-            }
-            else if (strcmp(argv[i], "--createkey") == 0) {
-                Keychain::createKey();
-                exit(0);
-            }
-            else if (strcmp(argv[i], "--deletekey") == 0) {
-                Keychain* keychain = new Keychain(false);
-                keychain->deleteKey();
-                delete keychain;
-                exit(0);
-            }
-            else {
-                printf("Error: Unrecognized argument \"%s\".\n", argv[i]);
-                puts("Launch this program with the \"--help\" flag to see a list of arguments.");
-                exit(0);
-            }
+    if (overflow_count > 0) {
+        printf("Invalid arguments...\n");
+        for (unsigned i = 0; i < overflow_count; i++) {
+            printf("%i: %s\n", i, overflow[i]);
         }
+        exit(1);
     }
-    if ((flag & mask) != mask) {
-        printf("Error: Missing arguments...\n");
-        exit(0);
+
+    if (argparser_context.encrypt == false && argparser_context.decrypt == false) {
+        printf("Must specify --encrypt or --decrypt...\n");
+        exit(1);
     }
+
+    _encrypt = argparser_context.encrypt;
+    _debugMode = argparser_context.debug;
+    this->key = argparser_context.key;
 }
 
 Application::Application(const int argc, char** argv) :

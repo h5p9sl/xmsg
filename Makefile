@@ -3,7 +3,7 @@
 
 include config.mk
 
-SRC = main.cpp aes.c base64.cpp keychain.cpp xmsg.cpp
+SRC = main.cpp aes.c base64.cpp keychain.cpp xmsg.cpp argparser.cpp
 OBJ = ${SRC:.cpp=.o}
 OBJ := ${OBJ:.c=.o}
 
