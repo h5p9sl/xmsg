@@ -5,15 +5,14 @@
 #include <cstdio>
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <limits>
 
 #ifdef __linux__
 #include <sys/random.h>
 #elif defined(_WIN32)
-#include <Windows.h>
+#include <windows.h>
 #include <bcrypt.h>
-
-#pragma comment(lib, "bcrypt.lib")
 #endif
 
 // Compiler hack
@@ -23,10 +22,11 @@
 #include "aes.hpp"
 #endif
 #include "base64.hpp"
+#include "argparser.hpp"
 
 static bool _debugMode = false;
+static bool _encrypt = false;
 
-void help(char** argv);
 void encryptMessage(AES_ctx* ctx, std::string msg);
 void decryptMessage(AES_ctx* ctx, std::string msg);
 void inline debugPrint(const char* output);
@@ -41,16 +41,6 @@ void debugPrint(const char* output) {
     if (_debugMode == true) {
         puts(output);
     }
-}
-
-void help(char** argv) {
-    printf("Usage: %s [optional flags]\n", argv[0]);
-    puts("xmsg is a cryptography program that aims to create strong encrypted messages for two or more people.");
-    puts("-h    --help      : display this help message.");
-    puts("-v    --version   : display xmsg version.");
-    puts("-d    --debug     : enable debug messages.");
-    puts("      --createkey : create encryption key.");
-    puts("      --deletekey : delete encryption key.");
 }
 
 void encryptMessage(AES_ctx* ctx, std::string msg) {
@@ -93,14 +83,7 @@ void decryptMessage(AES_ctx* ctx, std::string msg) {
     AES_CBC_decrypt_buffer(ctx, buf + sizeof(AESMetadata), data.size() - sizeof(AESMetadata));
 
     std::string finalMessage = data.substr(sizeof(AESMetadata), md->messageLength);
-    std::cout << '\"' << finalMessage << '\"' << std::endl;
-}
-
-std::string Application::getInput() {
-    std::string line;
-    std::cout << '(' << this->keychain->getKeyIndex() << ") xmsg > " << std::flush;
-    std::getline(std::cin, line);
-    return line;
+    std::cout << finalMessage;
 }
 
 std::vector<uint8_t> Application::generateRandomBytes(const int count) {
@@ -113,50 +96,51 @@ std::vector<uint8_t> Application::generateRandomBytes(const int count) {
         return result;
     }
 #elif defined(_WIN32)
-    BCRPYT_ALG_HANDLE hAlg;
-    BCrpytOpenAlgorithmProvider(&hAlg, BCRYPT_RNG_ALGORITHM, NULL, NULL);
-    NTSTATUS status = BCryptGenRandom(hAlg, result.data(), count, NULL);
+    BCRYPT_ALG_HANDLE hAlg;
+    BCryptOpenAlgorithmProvider(&hAlg, BCRYPT_RNG_ALGORITHM, 0, 0);
+    NTSTATUS status = BCryptGenRandom(hAlg, result.data(), count, 0);
     if (status != 0l) {
         puts("BCryptGenRandom failed!");
-        printf("GetLastError() = %i\n", GetLastError());
+        printf("GetLastError() = %li\n", GetLastError());
         return result;
     }
+    BCryptCloseAlgorithmProvider(hAlg, 0);
 #endif
     return result;
 }
 
 void Application::processArguments(const int argc, char** argv) {
-    if (argc >= 2) {
-        if (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) {
-            help(argv);
-            exit(0);
-        }
-        else if (strcmp(argv[1], "-v") == 0 || strcmp(argv[1], "--version") == 0) {
-            printf("xmsg version %.1f\n", _xmsg_version);
-            exit(0);
-        }
-        else if (strcmp(argv[1], "-d") == 0 || strcmp(argv[1], "--debug") == 0) {
-            _debugMode = true;
-        }
-        else if (strcmp(argv[1], "--createkey") == 0) {
-            Keychain::createKey();
-            exit(0);
-        }
-        else if (strcmp(argv[1], "--deletekey") == 0) {
-            Keychain* keychain = new Keychain(false);
-            keychain->deleteKey();
-            delete keychain;
-            exit(0);
-        }
-        else {
-            printf("Error: Unrecognized argument \"%s\".\n", argv[1]);
-            puts("Launch this program with the \"--help\" flag to see a list of arguments.");
-            exit(0);
-        }
+    
+    unsigned overflow_count = 0;
+    char** overflow = new char*[argc];
+
+    if (argc < 2) {
+        printf("Insufficient number of arguments...\n");
+        exit(1);
     }
+
+    ARGPARSER_parseProgramArguments((int)argc - 1, &argv[1], overflow, sizeof(char*) * argc, &overflow_count);
+
+    if (overflow_count > 0) {
+        printf("Invalid arguments...\n");
+        for (unsigned i = 0; i < overflow_count; i++) {
+            printf("%i: %s\n", i, overflow[i]);
+        }
+        exit(1);
+    }
+
+    if (argparser_context.encrypt == false && argparser_context.decrypt == false) {
+        printf("Must specify --encrypt or --decrypt...\n");
+        exit(1);
+    }
+
+    _encrypt = argparser_context.encrypt;
+    _debugMode = argparser_context.debug;
+    this->key = argparser_context.key;
 }
 
-Application::Application(const int argc, char** argv)
+Application::Application(const int argc, char** argv) :
+    key(-1)
 {
     _debugMode = false;
     processArguments(argc, argv);
@@ -183,29 +167,21 @@ void Application::start() {
     // Create AES context
     AES_ctx* ctx = new AES_ctx;
     // Create Keychain instance
-    this->keychain = std::make_unique<Keychain>();
+    this->keychain = std::make_unique<Keychain>(this->key);
 
-    // Application main loop
-    while (true) {
-        puts("Type in a message.");
-        std::string msg = this->getInput();
-        puts("Encrypt or Decrypt? (e/d)");
-        std::string option = this->getInput();
+    std::string data;
+    debugPrint("Reading input until EOF is reached.");
+    while (std::cin.good()) {
+        char c;
+        std::cin.get(c);
+        data.push_back(c);
+    };
+    // Get rid of EOF char
+    data.pop_back();
 
-        if (option.compare("e") == 0) {
-            InitializeAES(ctx);
-            encryptMessage(ctx, msg);
-            DestroyAES(ctx);
-        }
-        else if (option.compare("d") == 0) {
-            InitializeAES(ctx);
-            decryptMessage(ctx, msg);
-            DestroyAES(ctx);
-        }
-        else {
-            puts("Invalid option.");
-        }
-    }
+    InitializeAES(ctx);
+    (_encrypt) ? encryptMessage(ctx, data) : decryptMessage(ctx, data);
+    DestroyAES(ctx);
 
     delete ctx;
 }

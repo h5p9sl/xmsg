@@ -12,6 +12,7 @@ constexpr float _xmsg_version = 1.0f;
 class Application
 {
 private:
+    int key;
     std::unique_ptr<Keychain> keychain;
 public:
     Application(const int argc, char** argv);

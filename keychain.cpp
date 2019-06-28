@@ -6,47 +6,103 @@
 #include <limits>
 #include <cstring>
 #include <algorithm>
+#include <cstdio>
 
 #include "xmsg.hpp"
+#include "config.hpp"
 
-constexpr char keyfile[] = "./xmsgkey.txt";
+#ifdef __linux__
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#elif defined(_WIN32)
+#include <windows.h>
+#endif
 
-Keychain::Keychain(const bool promptUser) :
-    currentKeyIndex(0)
+Keychain::Keychain(const int keyid) :
+    currentKeyIndex(keyid)
 {
     this->loadKeyNames();
-
-    while (promptUser && this->keyNames.size() > 1) {
+    // Invalid key was selected.
+    if (keyid < 0 || (unsigned)keyid >= this->keyNames.size()) {
         puts("Which encryption key do you want to use?");
         for (unsigned i = 0; i < this->keyNames.size(); i++) {
             printf("[%i]: \"%s\"\n", i, this->keyNames.at(i).c_str());
         }
+        exit(0);
+    }
+}
 
-        unsigned choice;
-        std::cout << "xmsg > " << std::flush;
-        std::cin >> choice;
-        // Clear the input stream
-        std::cin.clear();
-        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-        
-        if (choice <= this->keyNames.size() - 1) {
-            this->currentKeyIndex = choice;
-            break;
-        } else {
-            puts("Invalid option.");
+#ifdef __linux__
+int mkdir_parents(const char* dir, const mode_t mode) {
+#elif defined(_WIN32)
+int mkdir_parents(const char* dir) {
+#endif
+    char* buf;
+    int* sep;
+    unsigned dc, i;
+
+    dc = 0;
+    sep = NULL;
+    // Find all '/' characters in string
+    // and store their positions in sep
+    for (i = 0; i < strlen(dir); i++) {
+        if (dir[i] == '/') {
+            sep = (int*)realloc(sep, sizeof(int*) * ++dc);
+            sep[dc - 1] = i;
         }
     }
+
+    buf = (char*)malloc(strlen(dir) + 1);
+    memset(buf, 0, strlen(dir) + 1);
+    // Iterate through directories and create
+    // non existing ones
+    for (i = 1; i < dc; i++) {
+        strncpy(buf, dir, sep[i] + 1);
+#ifdef __linux__
+        mkdir(buf, mode);
+#elif defined(_WIN32)
+        CreateDirectoryA(buf, NULL);
+#endif
+    }
+
+    free(buf);
+    return 0;
+}
+
+void Keychain::createKeyFile() {
+    bool exists;
+
+    exists = false;
+#ifdef __linux__
+    struct stat s;
+    if (stat(KEYFILE_PATH, &s) == 0) {
+        exists = (bool)S_ISREG(s.st_mode);
+        printf("exists = %i\n", (int)exists);
+    }
+
+    if (!exists) {
+        mkdir_parents(KEYFILE_PATH, 511);
+    }
+#elif defined(_WIN32)
+    OFSTRUCT ofs;
+    HFILE file = OpenFile(KEYFILE_PATH, &ofs, OF_EXIST);
+    exists = file != HFILE_ERROR && file != NULL;
+    if (!exists) {
+        mkdir_parents(KEYFILE_PATH);
+    }
+#endif
 }
 
 std::array<uint8_t, AES_KEYLEN> Keychain::getKey()
 {
-    std::ifstream file(keyfile);
+    std::ifstream file(KEYFILE_PATH);
     std::string line;
     std::array<uint8_t, AES_KEYLEN> key;
     key.fill(0);
 
     if (!file.is_open()) {
-        printf("Could not open %s... Does it exist?\n", keyfile);
+        printf("Could not open %s... Does it exist?\n", KEYFILE_PATH);
         file.close();
         exit(0);
         return key;
@@ -119,7 +175,7 @@ void Keychain::createKey() {
 void Keychain::deleteKey() {
     while (true) {
         std::vector<std::string> keyNames = this->getKeyNames();
-        for (int i = 0; i < keyNames.size(); i++) {
+        for (unsigned i = 0; i < keyNames.size(); i++) {
             printf("[%i]: \"%s\"\n", i, keyNames.at(i).c_str());
         }
         puts("Which key would you like to delete?");
@@ -167,6 +223,9 @@ void Keychain::deleteKey() {
 
 void Keychain::createKey(std::string keyName, std::array<uint8_t, AES_KEYLEN> key)
 {
+    // Checks if the key file exists, and creates one if it doesn't
+    Keychain::createKeyFile();
+
     std::cout << "Creating a key named " << keyName << "...\n";
     std::cout << "Key data: ";
     for (int i = 0; i < AES_KEYLEN; i++) {
@@ -174,9 +233,9 @@ void Keychain::createKey(std::string keyName, std::array<uint8_t, AES_KEYLEN> ke
     }
     std::cout << '\n';
 
-    std::ofstream file(keyfile, std::ios::app | std::ios::out);
+    std::ofstream file(KEYFILE_PATH, std::ios::app | std::ios::out);
     if (!file.is_open()) {
-        printf("Could not open %s for writing...\n", keyfile);
+        printf("Could not open %s for writing...\n", KEYFILE_PATH);
         file.close();
         return;
     }
@@ -199,11 +258,11 @@ void Keychain::createKey(std::string keyName, std::array<uint8_t, AES_KEYLEN> ke
 
 void Keychain::loadKeyNames()
 {
-    std::ifstream file(keyfile);
+    std::ifstream file(KEYFILE_PATH);
     std::string line;
 
     if (!file.is_open()) {
-        printf("Could not open %s... Does it exist?\n", keyfile);
+        printf("Could not open \"%s\"... Does it exist?\n", KEYFILE_PATH);
         file.close();
         exit(0);
         return;

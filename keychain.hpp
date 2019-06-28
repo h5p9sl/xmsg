@@ -16,13 +16,14 @@ public:
     int getKeyIndex() const { return this->currentKeyIndex; }
     std::vector<std::string> getKeyNames() { this->loadKeyNames(); return this->keyNames; }
 public:
-    Keychain(const bool promptUser = true);
+    Keychain(const int keyid);
     std::array<uint8_t, AES_KEYLEN> getKey();
     static void createKey();
     void deleteKey();
     static void createKey(std::string keyName, std::array<uint8_t, AES_KEYLEN> key);
 private:
     void loadKeyNames();
+    static void createKeyFile();
 };
 
 #endif
