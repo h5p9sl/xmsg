@@ -11,10 +11,8 @@
 #ifdef __linux__
 #include <sys/random.h>
 #elif defined(_WIN32)
-#include <Windows.h>
+#include <windows.h>
 #include <bcrypt.h>
-
-#pragma comment(lib, "bcrypt.lib")
 #endif
 
 // Compiler hack
@@ -98,14 +96,15 @@ std::vector<uint8_t> Application::generateRandomBytes(const int count) {
         return result;
     }
 #elif defined(_WIN32)
-    BCRPYT_ALG_HANDLE hAlg;
-    BCrpytOpenAlgorithmProvider(&hAlg, BCRYPT_RNG_ALGORITHM, NULL, NULL);
-    NTSTATUS status = BCryptGenRandom(hAlg, result.data(), count, NULL);
+    BCRYPT_ALG_HANDLE hAlg;
+    BCryptOpenAlgorithmProvider(&hAlg, BCRYPT_RNG_ALGORITHM, 0, 0);
+    NTSTATUS status = BCryptGenRandom(hAlg, result.data(), count, 0);
     if (status != 0l) {
         puts("BCryptGenRandom failed!");
-        printf("GetLastError() = %i\n", GetLastError());
+        printf("GetLastError() = %li\n", GetLastError());
         return result;
     }
+    BCryptCloseAlgorithmProvider(hAlg, 0);
 #endif
     return result;
 }
