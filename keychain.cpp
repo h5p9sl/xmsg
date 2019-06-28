@@ -16,6 +16,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #elif defined(_WIN32)
+#include <windows.h>
 #endif
 
 Keychain::Keychain(const int keyid) :
@@ -34,6 +35,9 @@ Keychain::Keychain(const int keyid) :
 
 #ifdef __linux__
 int mkdir_parents(const char* dir, const mode_t mode) {
+#elif defined(_WIN32)
+int mkdir_parents(const char* dir) {
+#endif
     char* buf;
     int* sep;
     unsigned dc, i;
@@ -55,13 +59,16 @@ int mkdir_parents(const char* dir, const mode_t mode) {
     // non existing ones
     for (i = 1; i < dc; i++) {
         strncpy(buf, dir, sep[i] + 1);
+#ifdef __linux__
         mkdir(buf, mode);
+#elif defined(_WIN32)
+        CreateDirectoryA(buf, NULL);
+#endif
     }
 
     free(buf);
     return 0;
 }
-#endif
 
 void Keychain::createKeyFile() {
     bool exists;
@@ -78,7 +85,12 @@ void Keychain::createKeyFile() {
         mkdir_parents(KEYFILE_PATH, 511);
     }
 #elif defined(_WIN32)
-    // TODO: Write WIN32 code here
+    OFSTRUCT ofs;
+    HFILE file = OpenFile(KEYFILE_PATH, &ofs, OF_EXIST);
+    exists = file != HFILE_ERROR && file != NULL;
+    if (!exists) {
+        mkdir_parents(KEYFILE_PATH);
+    }
 #endif
 }
 
